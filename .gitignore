@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# 镜像与备份（体积大，且含个人设备数据）
+*.img
+*.bin
+backup/
+
+# 抓包/临时产物
+*.log
+*.tmp
+__pycache__/
+*.pyc
