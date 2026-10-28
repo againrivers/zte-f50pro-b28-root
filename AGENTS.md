@@ -28,7 +28,8 @@
 
 【硬性禁止】
 - 没有备份就执行写操作
-- 刷 TrustOS（B28 不需要，且社区包不匹配）
+- 默认**不动** TrustOS；仅当只刷 init_boot 后出现**循环重启**（USB 正常枚举、非诊断模式）
+  时，才用本机 dump 派生免校验版本，绝不使用社区异版本 tos.bin
 - 用「补零」方式重建镜像（会破坏 AVB0/AVBf）
 - 靠软重启进入 BootROM
 - 连续重试已经失败的刷写
@@ -141,7 +142,10 @@ adb devices                        # 应有 192.168.0.1:5555
 
 **闸门**：网络和 ADB 都恢复。
 
-若 USB 显示 `1782:4D00` → 诊断模式，按 [docs/04-recovery.md](docs/04-recovery.md) 重刷备份。
+若 USB 显示 `1782:4D00` → 诊断模式（AVB 结构问题），按 [docs/04-recovery.md](docs/04-recovery.md) 重刷备份。
+
+若 USB **正常枚举 `ncm,mtp` 但反复重启** → TrustOS/TEE 层校验，按
+[docs/01-root.md §8](docs/01-root.md) 处理（需同时刷 `trustos_b`）。
 
 ### 阶段 4 · Root 功能验证
 
@@ -181,6 +185,7 @@ python3 tools/ufi-api.py --password '<你的密码>' \
 | `LIBUSB_ERROR_IO` | 写入被干扰 | 检查是否有 AOA 探测（微信），物理重插后重试**一次** |
 | `LIBUSB_ERROR_NO_DEVICE` | BootROM 窗口太短 | 改物理重插，不要软重启 |
 | `su: not found` | 路径错 | 用 `/debug_ramdisk/su` |
+| 无限重启但 USB 正常枚举 | TrustOS/TEE 层校验 | 见 [docs/01-root.md §8](docs/01-root.md)，不要用社区 tos.bin |
 | 脚本不执行 | Magisk 环境不完整 | 查 `/cache/magisk.log` 是否有 `environment incomplete` |
 
 **连续失败两次必须停下来报告**，不要试第三次。

@@ -10,7 +10,8 @@
 | 表现 | 状态 | 能否救 |
 | --- | --- | --- |
 | `adb devices` 有 `192.168.0.1:5555` | 正常 | 不需要救 |
-| USB 显示 `1782:4D00` / `Sprd Gadget Serial` | **诊断模式**（AVB 校验失败） | ✅ 重刷 init_boot |
+| USB 显示 `1782:4D00` / `Sprd Gadget Serial` | **诊断模式**（AVB 结构问题） | ✅ 重刷 init_boot |
+| USB 正常枚举 `ncm,mtp` 但**反复重启** | **TrustOS/TEE 层拒绝** | ⚠️ 需同时处理 `trustos_b`（见 [01-root.md §8](01-root.md)） |
 | 完全没反应，`system_profiler` 里看不到设备 | 可能已关机 | 重插试试 |
 | 插上后 macOS 报"未知设备"，无 USB ID | BootROM 也没了 | ⚠️ 需要短接（超出本文范围） |
 
@@ -163,6 +164,7 @@ adb pull /data/local/tmp/init_boot_working.img
 | 症状 | 最可能原因 | 处理 |
 | --- | --- | --- |
 | `1782:4D00`，无网络 | AVB 结构被破坏 | 重刷 `init_boot_b`（备份版） |
+| 正常枚举但无限重启 | TrustOS/TEE 层校验 | 用本机 dump 派生免校验 TrustOS |
 | 刷完能启动但无 root | Magisk 未初始化 / sqlite 策略缺失 | 检查 `/cache/magisk.log`，补 `/data/adb/magisk` |
 | 有 root 但脚本不执行 | Magisk 环境不完整 | 同上，见坑 4 |
 | `LIBUSB_ERROR_IO` 中途失败 | USB 干扰 / AOA 重枚举 | 关微信，物理重插，重试 |

@@ -306,3 +306,46 @@ LIBUSB_ERROR_NO_DEVICE   on claim
 3. 设备进 BROM，`spd_dump` 自动接上
 
 ---
+
+---
+
+## 坑 8：刷完无限重启（不是诊断模式）
+
+> 这个坑由用户 [issue #1](https://github.com/againrivers/zte-f50pro-b28-root/issues/1) 反馈，
+> 推翻了文档早期「B28 只需刷 init_boot」的绝对结论。
+
+### 现象
+
+- 用 `inspect-init-boot.py` 验证镜像 → **结构完整**
+- 刷入后设备**反复重启**，起不来
+- 但 USB **能正常枚举**为 `ncm,mtp`，不是 `1782:4D00`
+
+### 根因
+
+和坑 1 是**完全不同的失败点**：
+
+| 现象 | 卡在哪一层 |
+| --- | --- |
+| `1782:4D00` | bootloader 阶段，AVB 结构不对 |
+| 循环重启但 USB 正常 | bootloader 放行了，**TrustOS / TEE 层**拒绝改动的 ramdisk |
+
+部分 B28 设备的 boot 链校验下沉到了 TrustOS，任何改过的 ramdisk 都会在
+bootloader 之后被拦下。**这不是补丁内容能绕过的，是设备侧的安全策略。**
+
+### 解法
+
+需要**同时处理 `trustos_b`**：
+
+```bash
+# 用自己设备的 sml_b + trustos_b 派生免校验版本
+./bin/dis_avb_ex sml_b trustos_b
+```
+
+然后 `trustos_b` 和 `init_boot_b` 一起刷。
+
+### 经验
+
+- **不要用社区的 `tos.bin`**：与 B28 实机差 11.77%，且所有标注版本其实是同一个
+  6 月 8 日构建改名；有反馈称会导致 WiFi 5 → WiFi 4 降级
+- 判断失败点时，**USB 是否正常枚举**是最有效的分界线
+- 只靠"镜像结构验证通过"不能保证能启动——结构正确 ≠ 校验链通过

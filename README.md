@@ -44,7 +44,13 @@
 
 在 B28 上照搬会失败。
 
-**本项目的结论是：B28 不需要刷 TrustOS。**
+**验证机（构建 `20260818.180242`）的结论：只刷 `init_boot_b` 即可，不需要动 TrustOS。**
+
+> ⚠️ **但这条不是对所有 B28 都成立。**
+> 部分 B28 设备的 boot 链校验在 **TrustOS/TEE 层**，只刷 init_boot 会**循环重启**
+> （USB 正常枚举，不是诊断模式），必须同时处理 `trustos_b`。
+> 见 [issue #1](https://github.com/againrivers/zte-f50pro-b28-root/issues/1) 和
+> [docs/01-root.md §8](docs/01-root.md)。
 
 只补丁 `init_boot` 并**保持 AVB 结构完整**，设备就能正常启动。难点不在"绕过校验"，而在"别把校验结构写坏"——见 [坑 1](docs/03-pitfalls.md)。
 

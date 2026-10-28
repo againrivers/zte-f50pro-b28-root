@@ -359,15 +359,63 @@ $A shell 'getprop ro.boot.slot_suffix'
 
 ## 8. 关于 TrustOS / AVB 绕过
 
-部分教程会额外刷 `trustos_b`（用 `dis_avb_ex` 从 `sml_b` + `trustos_b` 生成免校验版本）。
+### 8.1 先分清两种失败
 
-**本设备的实测结论：不必要。**
+这两件事完全不同，处理路径也不同：
 
-- 社区包里的 `tos.bin` 与设备实际 TrustOS 有 **11.77%** 字节差异，来源不明
-- 社区包所有版本（标注 B10~B27）其实是同一个 6 月 8 日构建，只是改了文件名
-- 仅修补 init_boot 并保持 AVB 结构完整，设备就能正常启动
+| 现象 | 失败点 | 处理方向 |
+| --- | --- | --- |
+| USB 变成 `1782:4D00`，设备停在诊断模式 | **AVB 结构被破坏** | 重建镜像，保持 `AVB0`/`AVBf` 完整 |
+| **无限重启**，USB 正常枚举为 `ncm,mtp`，系统起不来 | **TrustOS / TEE 层拒绝** | 需要同时处理 `trustos_b` |
 
-**除非遇到明确的校验失败，否则不要动 TrustOS。**
+第 1 种是本项目早期踩的坑（见 [03-pitfalls.md](03-pitfalls.md) 坑 1）。
+第 2 种来自真实用户反馈（[issue #1](https://github.com/againrivers/zte-f50pro-b28-root/issues/1)），
+文档早期版本漏掉了它。
+
+### 8.2 验证机的实测
+
+验证机（构建 `20260818.180242`）：**只刷 `init_boot_b` 即可启动**，无需动 TrustOS。
+
+证据：刷完 `init_boot_b_v5.img` 后设备正常启动，`/cache/magisk.log` 正常输出
+`Running post-fs-data.d scripts`。
+
+### 8.3 什么时候必须处理 TrustOS
+
+部分 B28 设备的 boot 链校验发生在 **TrustOS/TEE 层**——bootloader 放行了，
+但 TEE 随后拒绝改动过的 ramdisk，表现就是**循环重启**。
+
+判断方法：
+
+```bash
+# 设备重启瞬间反复抓 USB
+system_profiler SPUSBDataType | grep -A6 -iE "1782|ncm"
+```
+
+- 一直是 `1782:4D00` → AVB 结构问题，回去改构建
+- 短暂出现正常的 `ncm,mtp` 然后消失、循环 → TrustOS 层校验
+
+确认是后者时，两条路：
+
+**A. 用本机 dump 派生免校验 TrustOS（推荐）**
+
+```bash
+# 从备份里取出 sml_b 与 trustos_b
+./bin/dis_avb_ex sml_b trustos_b
+```
+
+用自己的分区派生，版本天然匹配。
+
+**B. 刷社区的 `tos.bin`（不推荐）**
+
+社区包与 B28 实机 TrustOS 有 **11.77%** 字节差异，且所有标注版本
+（B10~B27）其实是同一个 6 月 8 日构建改名。有反馈称可能导致
+**WiFi 5 → WiFi 4** 的能力降级。
+
+### 8.4 结论
+
+- **默认**只刷 `init_boot_b`
+- 只有确认「循环重启 + USB 正常枚举」时才处理 TrustOS
+- 优先用自己 dump 的分区派生，不要用社区的异版本文件
 
 ---
 
